@@ -10,6 +10,22 @@ const createIdGenerator = () => {
 const createGame = (options) => {
   const entityIdGenerator = createIdGenerator();
 
+  const subscribers = [];
+  const subscribe = (dispatch) => {
+    subscribers.push(dispatch);
+  };
+  const unsubscribe = (dispatch) => {
+    const index = subscribers.indexOf(dispatch);
+    if (index !== -1) {
+      subscribers.splice(index, 1);
+    }
+  };
+  const emit = (action) => {
+    subscribers.forEach((dispatch) => {
+      dispatch(action);
+    });
+  };
+
   const createEntity = ({
     owner,
     y,
@@ -76,6 +92,8 @@ const createGame = (options) => {
         entity.y > state.fieldSize
       ) {
         entity.isLive = false;
+        // 엔티티가 필드를 벗어나서 죽었다는 것을 알린다
+        emit({ type: 'entity-out', entityId: entity.id });
       }
     });
 
@@ -99,12 +117,22 @@ const createGame = (options) => {
               state.playerIds[state.turn % state.playerIds.length]
             ) {
               entity.isLive = false;
+              emit({
+                type: 'entity-killed',
+                killerId: entity.id,
+                victimId: other.id,
+              });
             }
             if (
               other.owner !==
               state.playerIds[state.turn % state.playerIds.length]
             ) {
               other.isLive = false;
+              emit({
+                type: 'entity-killed',
+                killerId: other.id,
+                victimId: entity.id,
+              });
             }
           }
         }
@@ -118,6 +146,10 @@ const createGame = (options) => {
       );
     if (!state.playerIds.every(isPlayerLive)) {
       state.process = 'gameover';
+      emit({
+        type: 'gameover',
+        winnerId: state.playerIds.find((playerId) => isPlayerLive(playerId)),
+      });
     }
 
     // 이동 중인 엔티티가 없으면 턴을 변경한다
@@ -127,6 +159,10 @@ const createGame = (options) => {
     ) {
       state.process = 'idle';
       state.turn += 1;
+      emit({
+        type: 'turn-changed',
+        turn: state.turn,
+      });
     }
   };
 
@@ -134,15 +170,31 @@ const createGame = (options) => {
     const entity = state.entities.find((entity) => entity.id === entityId);
 
     // 현재 프로세스가 idle이 아니면 이동할 수 없다
-    if (state.process !== 'idle') return;
+    if (state.process !== 'idle') {
+      emit({
+        type: 'invalid-action',
+        message: '이동할 수 없는 상태입니다.',
+      });
+      return;
+    }
 
     // 현재 플레이어의 턴이 아니면 이동할 수 없다
     if (state.playerIds[state.turn % state.playerIds.length] !== entity.owner) {
+      emit({
+        type: 'invalid-action',
+        message: '자신의 턴이 아니면 이동할 수 없습니다.',
+      });
       return;
     }
 
     // 죽은 엔티티는 이동할 수 없다
-    if (!entity.isLive) return;
+    if (!entity.isLive) {
+      emit({
+        type: 'invalid-action',
+        message: '죽은 엔티티는 이동할 수 없습니다.',
+      });
+      return;
+    }
 
     // 해당하는 엔티티를 찾고, 속도를 설정한다
     if (entity) {
@@ -150,6 +202,17 @@ const createGame = (options) => {
       entity.vy += Math.sin(angle) * entity.p;
       entity.vx += Math.cos(angle) * entity.p;
       state.process = 'move';
+
+      // 엔티티가 가속도를 받아 이동했다는 것을 알린다
+      emit({
+        type: 'entity-accelerated',
+        entityId: entity.id,
+      });
+    } else {
+      emit({
+        type: 'invalid-action',
+        message: '해당하는 엔티티가 없습니다.',
+      });
     }
   };
 
@@ -157,6 +220,8 @@ const createGame = (options) => {
     state,
     update,
     dispatch,
+    subscribe,
+    unsubscribe,
   };
 };
 

@@ -36,6 +36,8 @@ const setUpGame = (game, element) => {
         dy: y,
         dx: x,
       });
+
+      targetId = null;
     }
   });
   element.appendChild(fieldElement);
@@ -93,6 +95,6 @@ const setUpGame = (game, element) => {
   loop();
 };
 
-const game = createGame();
+const game = createGame({});
 setUpGame(game, document.querySelector('#app'));
 setInterval(game.update, 1000 / 50);

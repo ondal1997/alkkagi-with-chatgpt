@@ -106,7 +106,7 @@ button:focus-visible {
 
 .entity {
   border-radius: 50%;
-  opacity: 0.5;
+  opacity: 1;
   background-color: #646cff;
   cursor: pointer;
 }
@@ -116,7 +116,7 @@ button:focus-visible {
 }
 
 .entity.entity--target {
-  opacity: 1;
+  opacity: 0.5;
 }
 
 .entity.entity--dead {
