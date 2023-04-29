@@ -86,14 +86,15 @@ const createGame = (options) => {
 
     state.entities.forEach((entity) => {
       if (
-        entity.x < 0 ||
-        entity.x > state.fieldSize ||
-        entity.y < 0 ||
-        entity.y > state.fieldSize
+        entity.isLive &&
+        (entity.x < 0 ||
+          entity.x > state.fieldSize ||
+          entity.y < 0 ||
+          entity.y > state.fieldSize)
       ) {
         entity.isLive = false;
         // 엔티티가 필드를 벗어나서 죽었다는 것을 알린다
-        emit({ type: 'entity-out', entityId: entity.id });
+        emit({ type: 'entity-out', entity });
       }
     });
 
@@ -119,8 +120,8 @@ const createGame = (options) => {
               entity.isLive = false;
               emit({
                 type: 'entity-killed',
-                killerId: entity.id,
-                victimId: other.id,
+                killer: entity,
+                victim: other,
               });
             }
             if (
@@ -130,8 +131,8 @@ const createGame = (options) => {
               other.isLive = false;
               emit({
                 type: 'entity-killed',
-                killerId: other.id,
-                victimId: entity.id,
+                killer: other,
+                victim: entity,
               });
             }
           }
@@ -167,6 +168,10 @@ const createGame = (options) => {
   };
 
   const dispatch = ({ entityId, dy, dx }) => {
+    emit({
+      type: 'dispatched',
+      action: { entityId, dy, dx },
+    });
     const entity = state.entities.find((entity) => entity.id === entityId);
 
     // 현재 프로세스가 idle이 아니면 이동할 수 없다
@@ -206,7 +211,8 @@ const createGame = (options) => {
       // 엔티티가 가속도를 받아 이동했다는 것을 알린다
       emit({
         type: 'entity-accelerated',
-        entityId: entity.id,
+        entity: entity,
+        targetPosition: { dy, dx },
       });
     } else {
       emit({
