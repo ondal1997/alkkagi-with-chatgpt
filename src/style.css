@@ -41,6 +41,9 @@ h1 {
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .logo {
@@ -94,4 +97,29 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+.field {
+  background-color: #ffffff;
+  overflow: hidden;
+}
+
+.entity {
+  border-radius: 50%;
+  opacity: 0.5;
+  background-color: #646cff;
+  cursor: pointer;
+}
+
+.entity.entity--player1 {
+  background-color: #f7df1e;
+}
+
+.entity.entity--target {
+  opacity: 1;
+}
+
+.entity.entity--dead {
+  pointer-events: none;
+  background-color: #242424;
 }
