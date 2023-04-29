@@ -1,12 +1,19 @@
 import './style.css';
 import { createGame } from './game';
 
+let abstractChat = '...';
+
 const setUpGame = (game, element) => {
   let targetId = null;
 
   const stateElement = document.createElement('div');
   stateElement.className = 'state';
   element.appendChild(stateElement);
+
+  const meElement = document.createElement('input');
+  meElement.className = 'me';
+  meElement.value = '내 엔티티를 움직여서 너의 엔티티를 죽여버리겠어!';
+  // element.appendChild(meElement);
 
   const fieldElement = document.createElement('div');
   fieldElement.className = 'field';
@@ -33,9 +40,10 @@ const setUpGame = (game, element) => {
       // game에 전달한다
 
       const command = {
+        description: meElement.value,
         entityId: targetId,
-        dy: y,
-        dx: x,
+        targetY: y,
+        targetX: x,
       };
 
       buffer.push(JSON.stringify(command));
@@ -46,14 +54,9 @@ const setUpGame = (game, element) => {
   });
   element.appendChild(fieldElement);
 
-  const inputElement = document.createElement('input');
-  inputElement.className = 'input';
-  inputElement.addEventListener('keydown', (event) => {
-    // 엔터를 입력하면
-    if (event.key === 'Enter') {
-    }
-  });
-  element.appendChild(inputElement);
+  const chatElement = document.createElement('div');
+  chatElement.className = 'chat';
+  element.appendChild(chatElement);
 
   // element에 게임의 상태를 그린다
   const drawState = () => {
@@ -80,6 +83,7 @@ const setUpGame = (game, element) => {
       div.style.top = `${entity.y - entity.r}px`;
       div.style.width = `${entity.r * 2}px`;
       div.style.height = `${entity.r * 2}px`;
+      div.textContent = entity.id;
       fieldElement.appendChild(div);
     });
   };
@@ -88,6 +92,7 @@ const setUpGame = (game, element) => {
   const render = () => {
     drawState();
     drawField();
+    chatElement.innerHTML = `ChatGPT: ${abstractChat}`;
   };
 
   // 브라우저 주사율마다 render를 실행한다
@@ -103,15 +108,16 @@ const game = createGame({});
 
 const getAbstractEntities = () =>
   JSON.stringify(
-    game.state.entities.map((entity) => {
-      return {
-        id: entity.id,
-        owner: entity.owner,
-        x: entity.x,
-        y: entity.y,
-        isLive: entity.isLive,
-      };
-    })
+    game.state.entities
+      .filter((entity) => entity.isLive)
+      .map((entity) => {
+        return {
+          id: entity.id,
+          player: entity.owner,
+          x: Math.floor(entity.x),
+          y: Math.floor(entity.y),
+        };
+      })
   );
 
 const messages = [
@@ -130,12 +136,15 @@ ${getAbstractEntities()}
 그리고 플레이어는 한 턴에 한 번씩 엔티티 1개에 대해 가속 명령을 내릴 수 있어.
 가속 명령은 다음과 같은 형식이어야해:
 {
-  entityId: 1,
-  dx: 10,
-  dy: 10,
+  description: 'id가 4인 상대방 엔티티를 죽이기 위해서 가장 가까운 id가 0인 엔티티를 해당 방향으로 가속합니다.',
+  entityId: 0,
+  targetX: 200,
+  targetY: 400
 }
 
-이 가속 명령을 내리면, id가 1인 엔티티가 (10, 10) 방향으로 가속되서 일정 거리만큼 이동하게 돼.
+이 가속 명령을 내리면, id가 0인 엔티티가 (200, 400) 방향으로 가속되서 일정 거리(대략 125)만큼 이동하게 돼.
+description 속성에는 targetX와 targetY를 설정한 이유와 entitiyId를 설정한 이유를 최대한 상세하게 적어야해. 이건 아주 중요하니까 꼭 지켜줘.
+description 속성에 계속 똑같은 말을 적는 것도 지양해줘.
 만약 엔티티가 이동하면서 상대 엔티티와 부딪히게 되면 상대 엔티티를 field에서 제거하게 돼.
 이렇게 게임을 진행하면서 상대방의 모든 엔티티를 제거하면 이기게 돼.
 
@@ -160,6 +169,8 @@ ${getAbstractEntities()}
 - System: '${
   game.state.playerIds[game.state.turn % 2]
 }'님 명령을 입력해주세요.`);
+
+game.subscribe(console.log);
 
 game.subscribe((action) => {
   const type = action.type;
@@ -198,7 +209,6 @@ ${getAbstractEntities()}
         content: buffer.join('\n'),
       });
       buffer.length = 0;
-      console.log(messages);
       chat();
     }
   }
@@ -209,11 +219,21 @@ ${getAbstractEntities()}
         game.state.playerIds[game.state.turn % 2]
       }'님 다시 명령을 말씀해주세요.`
     );
+
+    // 만약 chatGPT의 턴이라면 메시지를 전송해준다.
+    if (game.state.playerIds[game.state.turn % 2] === 'player2') {
+      messages.push({
+        role: 'user',
+        content: buffer.join('\n'),
+      });
+      buffer.length = 0;
+      chat();
+    }
   }
 
   if (type === 'entity-accelerated') {
     buffer.push(
-      `- System: 'id가 ${action.entity.id}인 엔티티'가 'y: ${action.targetPosition.dy}, x: ${action.targetPosition.dx}' 방향을 향해 이동합니다.`
+      `- System: 'id가 ${action.entity.id}인 엔티티'가 'y: ${action.targetPosition.targetY}, x: ${action.targetPosition.targetX}' 방향을 향해 이동합니다.`
     );
   }
 });
@@ -239,10 +259,10 @@ function chat() {
     .then((res) => res.json())
     .then((data) => data.choices[0].message)
     .then((message) => {
-      game.dispatch(JSON.parse(message.content));
+      const cmd = JSON.parse(message.content);
+      game.dispatch(cmd);
+      abstractChat = cmd.description;
 
       messages.push(message);
     });
 }
-
-console.log(import.meta.env)

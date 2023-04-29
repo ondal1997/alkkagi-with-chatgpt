@@ -106,6 +106,8 @@ button:focus-visible {
 
 .entity {
   border-radius: 50%;
+  font-size: 0.5rem;
+  line-height: 20px;
   opacity: 1;
   background-color: #646cff;
   cursor: pointer;
@@ -122,4 +124,8 @@ button:focus-visible {
 .entity.entity--dead {
   pointer-events: none;
   background-color: #242424;
+}
+
+.chat {
+  max-width: 500px;
 }

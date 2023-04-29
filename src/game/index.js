@@ -56,12 +56,12 @@ const createGame = (options) => {
     process: 'idle',
     playerIds: ['player1', 'player2'],
     entities: [
-      createEntity({ owner: 'player1', y: 100, x: 200 }),
+      createEntity({ owner: 'player1', y: 100, x: 100 }),
       createEntity({ owner: 'player1', y: 100, x: 250 }),
-      createEntity({ owner: 'player1', y: 100, x: 300 }),
-      createEntity({ owner: 'player2', y: 400, x: 200 }),
+      createEntity({ owner: 'player1', y: 100, x: 400 }),
+      createEntity({ owner: 'player2', y: 400, x: 100 }),
       createEntity({ owner: 'player2', y: 400, x: 250 }),
-      createEntity({ owner: 'player2', y: 400, x: 300 }),
+      createEntity({ owner: 'player2', y: 400, x: 400 }),
     ],
     fieldSize: 500,
     k: 0.875,
@@ -108,9 +108,9 @@ const createGame = (options) => {
         if (!other.isLive) return;
 
         if (entity.owner !== other.owner) {
-          const dx = entity.x - other.x;
-          const dy = entity.y - other.y;
-          const d = Math.sqrt(dx * dx + dy * dy);
+          const targetX = entity.x - other.x;
+          const targetY = entity.y - other.y;
+          const d = Math.sqrt(targetX * targetX + targetY * targetY);
           if (d < entity.r + other.r) {
             // owner가 playerIds[turn]이 아닌 엔티티를 죽인다
             if (
@@ -145,7 +145,7 @@ const createGame = (options) => {
       state.entities.some(
         (entity) => entity.owner === playerId && entity.isLive
       );
-    if (!state.playerIds.every(isPlayerLive)) {
+    if (!state.playerIds.every(isPlayerLive) && state.process !== 'gameover') {
       state.process = 'gameover';
       emit({
         type: 'gameover',
@@ -167,10 +167,10 @@ const createGame = (options) => {
     }
   };
 
-  const dispatch = ({ entityId, dy, dx }) => {
+  const dispatch = ({ entityId, targetY, targetX }) => {
     emit({
       type: 'dispatched',
-      action: { entityId, dy, dx },
+      action: { entityId, targetY, targetX },
     });
     const entity = state.entities.find((entity) => entity.id === entityId);
 
@@ -187,7 +187,7 @@ const createGame = (options) => {
     if (state.playerIds[state.turn % state.playerIds.length] !== entity.owner) {
       emit({
         type: 'invalid-action',
-        message: '자신의 턴이 아니면 이동할 수 없습니다.',
+        message: '자신의 엔티티만 이동시킬 수 있습니다.',
       });
       return;
     }
@@ -203,7 +203,7 @@ const createGame = (options) => {
 
     // 해당하는 엔티티를 찾고, 속도를 설정한다
     if (entity) {
-      const angle = Math.atan2(dy - entity.y, dx - entity.x);
+      const angle = Math.atan2(targetY - entity.y, targetX - entity.x);
       entity.vy += Math.sin(angle) * entity.p;
       entity.vx += Math.cos(angle) * entity.p;
       state.process = 'move';
@@ -212,7 +212,7 @@ const createGame = (options) => {
       emit({
         type: 'entity-accelerated',
         entity: entity,
-        targetPosition: { dy, dx },
+        targetPosition: { targetY, targetX },
       });
     } else {
       emit({
